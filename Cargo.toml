@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+android-sdkmanager-rs = "0.7"
 apk = "0.4"
 cargo_metadata = "0.18"
 clap = { version = "4", features = ["derive"] }
