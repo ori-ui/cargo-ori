@@ -8,6 +8,7 @@ use std::{
 use cargo_metadata::camino::Utf8Path;
 use clap::{Parser, Subcommand};
 use eyre::Context;
+use owo_colors::OwoColorize;
 use serde::Deserialize;
 
 use crate::OriMetadata;
@@ -34,7 +35,14 @@ impl Command {
                 let apk_metadata = Metadata::from_package(package)?;
                 let manifest = apk_manifest(package, &ori_metadata, &apk_metadata)?;
 
-                build_apk(&metadata, package, &apk_metadata, &manifest, &options)?;
+                build_apk(
+                    &metadata,
+                    package,
+                    &ori_metadata,
+                    &apk_metadata,
+                    &manifest,
+                    &options,
+                )?;
             }
 
             Command::Install(mut options) => {
@@ -59,6 +67,7 @@ impl Command {
                 install_apk(
                     &metadata,
                     package,
+                    &ori_metadata,
                     &apk_metadata,
                     &manifest,
                     device,
@@ -219,6 +228,7 @@ fn get_package<'a>(
 fn install_apk(
     metadata: &cargo_metadata::Metadata,
     package: &cargo_metadata::Package,
+    ori_metadata: &OriMetadata,
     apk_metadata: &Metadata,
     manifest: &apk::AndroidManifest,
     device: &Device,
@@ -226,7 +236,16 @@ fn install_apk(
 ) -> eyre::Result<()> {
     ensure_adb_installed()?;
 
-    let apk_path = build_apk(metadata, package, apk_metadata, manifest, options)?;
+    let apk_path = build_apk(
+        metadata,
+        package,
+        ori_metadata,
+        apk_metadata,
+        manifest,
+        options,
+    )?;
+
+    println!("  {} installing APK", "Install".green().bold());
 
     let output = process::Command::new("adb")
         .arg("-s")
@@ -239,12 +258,15 @@ fn install_apk(
         eyre::bail!("Install failed");
     }
 
+    println!("    {} APK installed", "Finished".green().bold());
+
     Ok(())
 }
 
 fn build_apk(
     metadata: &cargo_metadata::Metadata,
     package: &cargo_metadata::Package,
+    ori_metadata: &OriMetadata,
     apk_metadata: &Metadata,
     manifest: &apk::AndroidManifest,
     options: &BuildOptions,
@@ -264,10 +286,21 @@ fn build_apk(
         _ => eyre::bail!("Target '{}' is not supported for android", target),
     };
 
+    let package_root = package
+        .manifest_path
+        .parent()
+        .expect("manifest_path has parent");
+
     let icon_path = apk_metadata
         .icon
         .as_ref()
-        .map(|icon| metadata.workspace_root.join(icon));
+        .map(|icon| package_root.join(icon))
+        .or_else(|| {
+            ori_metadata
+                .icon
+                .as_ref()
+                .map(|icon| package_root.join(icon))
+        });
 
     let artifact = build_lib(
         package,
@@ -292,8 +325,18 @@ fn build_apk(
 
     fs::write(&dex_path, CLASSES_DEX).wrap_err("Failed to write classes.dex")?;
 
+    println!(
+        "  {} building APK `{}`",
+        "Build".green().bold(),
+        apk_path.display()
+    );
+
     let mut apk = apk::Apk::new(apk_path.clone(), manifest.clone(), true)
         .map_err(|e| eyre::eyre!("{}", e))?;
+
+    if let Some(ref icon_path) = icon_path {
+        println!("  {} adding icon `{}`", "Build".green().bold(), icon_path);
+    }
 
     apk.add_res(icon_path.as_ref().map(AsRef::as_ref), sdk_path.as_ref())
         .map_err(|e| eyre::eyre!("{}", e))?;
@@ -301,17 +344,33 @@ fn build_apk(
     apk.add_dex(dex_path.as_ref())
         .map_err(|e| eyre::eyre!("{}", e))?;
 
+    println!("  {} adding library `{}`", "Build".green().bold(), lib_path);
+
     apk.add_lib(apk_target, lib_path.as_ref())
         .map_err(|e| eyre::eyre!("{}", e))?;
 
     let pem = match options.pem {
-        Some(ref pem) => fs::read_to_string(pem).wrap_err("Failed to load PEM file")?,
-        None => String::from(include_str!("debug.pem")),
+        Some(ref pem) => {
+            println!(
+                "  {} signing APK with pem `{}`",
+                "Build".green().bold(),
+                pem.display()
+            );
+
+            fs::read_to_string(pem).wrap_err("Failed to load PEM file")?
+        }
+        None => {
+            println!("  {} signing APK with debug pem", "Build".green().bold());
+
+            String::from(include_str!("debug.pem"))
+        }
     };
 
     let signer = apk::Signer::new(&pem).map_err(|e| eyre::eyre!("{}", e))?;
 
     apk.finish(Some(signer)).map_err(|e| eyre::eyre!("{}", e))?;
+
+    println!("    {} APK built", "Finished".green().bold());
 
     Ok(apk_path)
 }
@@ -323,6 +382,12 @@ fn build_lib(
     release: bool,
     offline: bool,
 ) -> eyre::Result<cargo_metadata::Artifact> {
+    println!(
+        "  {} building library for target `{}`",
+        "Build".green().bold(),
+        target
+    );
+
     let mut command = process::Command::new("cross");
 
     command
@@ -501,6 +566,8 @@ fn download_android_sdk(target_directory: &Utf8Path, version: u32) -> eyre::Resu
     if apk_path.exists() {
         return Ok(apk_path.into());
     }
+
+    println!("{} {}", "Downloading".green(), android.green());
 
     android_sdkmanager::download_and_extract_packages(
         apk_dir.as_str(),

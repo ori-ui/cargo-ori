@@ -47,6 +47,7 @@ fn run_command(command: Command) -> eyre::Result<()> {
 #[serde(rename_all = "kebab-case")]
 pub struct OriMetadata {
     pub name: Option<String>,
+    pub icon: Option<String>,
 }
 
 impl OriMetadata {
