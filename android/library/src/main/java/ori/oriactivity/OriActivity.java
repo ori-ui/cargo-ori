@@ -27,6 +27,7 @@ public class OriActivity extends NativeActivity {
 
         editText = new OriEditText(this);
         editText.setVisibility(View.GONE);
+        editText.setSingleLine();
         setContentView(editText);
     }
 
@@ -52,9 +53,31 @@ public class OriActivity extends NativeActivity {
     }
 
     public void setIMEText(String text) {
-        System.out.println("setIMEText: " + editText.getText().toString());
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (text.equals(editText.getText().toString())) return;
+                editText.setText(text);
+                imm.restartInput(editText);
+            }
+        });
     }
 
     public void setIMESelection(int start, int end) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (start == editText.getSelectionStart() &&
+                    end == editText.getSelectionEnd())
+                    return;
+
+                if (start == end)
+                    editText.setSelection(start);
+                else
+                    editText.setSelection(start, end);
+
+                imm.restartInput(editText);
+            }
+        });
     }
 }
