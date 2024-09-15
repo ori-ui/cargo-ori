@@ -344,10 +344,21 @@ fn build_lib(
     let mut package_artifact = None;
 
     for message in cargo_metadata::Message::parse_stream(reader) {
-        if let cargo_metadata::Message::CompilerArtifact(artifact) = message? {
-            if artifact.package_id == package.id {
-                package_artifact = Some(artifact);
+        match message? {
+            cargo_metadata::Message::CompilerArtifact(artifact) => {
+                if artifact.package_id == package.id {
+                    package_artifact = Some(artifact);
+                }
             }
+            cargo_metadata::Message::CompilerMessage(message) => {
+                println!("{}", message.message);
+            }
+            cargo_metadata::Message::BuildScriptExecuted(_) => {}
+            cargo_metadata::Message::BuildFinished(_) => {}
+            cargo_metadata::Message::TextLine(line) => {
+                println!("{}", line);
+            }
+            _ => {}
         }
     }
 

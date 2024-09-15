@@ -104,4 +104,15 @@ public class OriActivity extends NativeActivity {
             }
         });
     }
+
+    public void setIMEInputType(int inputType) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (inputType == editText.getInputType()) return;
+
+                editText.setInputType(inputType);
+            }
+        });
+    }
 }
