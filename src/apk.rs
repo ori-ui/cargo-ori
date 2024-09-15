@@ -12,6 +12,8 @@ use serde::Deserialize;
 
 use crate::OriMetadata;
 
+const CLASSES_DEX: &[u8] = include_bytes!("classes.dex");
+
 #[derive(Subcommand)]
 pub enum Command {
     /// Build an APK from a Cargo project.
@@ -265,8 +267,6 @@ fn build_apk(
     let lib_path = metadata.workspace_root.join(lib_path);
 
     let lib_parent = lib_path.parent().expect("lib_path has parent");
-    let lib_oriapp = lib_parent.join("liboriapp.so");
-    fs::rename(&lib_path, &lib_oriapp).wrap_err("Failed to move liboriapp.so")?;
 
     let apk_path: PathBuf = lib_parent.join(format!("{}.apk", package.name)).into();
 
@@ -274,6 +274,8 @@ fn build_apk(
         .parent()
         .expect("sdk_path has parent")
         .join("classes.dex");
+
+    fs::write(&dex_path, CLASSES_DEX).wrap_err("Failed to write classes.dex")?;
 
     let mut apk = apk::Apk::new(apk_path.clone(), manifest.clone(), true)
         .map_err(|e| eyre::eyre!("{}", e))?;
@@ -284,7 +286,7 @@ fn build_apk(
     apk.add_dex(dex_path.as_ref())
         .map_err(|e| eyre::eyre!("{}", e))?;
 
-    apk.add_lib(apk_target, lib_oriapp.as_ref())
+    apk.add_lib(apk_target, lib_path.as_ref())
         .map_err(|e| eyre::eyre!("{}", e))?;
 
     let pem = match options.pem {
@@ -295,8 +297,6 @@ fn build_apk(
     let signer = apk::Signer::new(&pem).map_err(|e| eyre::eyre!("{}", e))?;
 
     apk.finish(Some(signer)).map_err(|e| eyre::eyre!("{}", e))?;
-
-    fs::rename(&lib_oriapp, &lib_path).wrap_err("Failed to restore liboriapp.so")?;
 
     Ok(apk_path)
 }
@@ -429,7 +429,7 @@ fn apk_manifest(
         hardware_accelerated: Some(true),
         meta_data: vec![apk::manifest::MetaData {
             name: String::from("android.app.lib_name"),
-            value: String::from("oriapp"),
+            value: package.name.replace("-", "_"),
         }],
         intent_filters: vec![apk::manifest::IntentFilter {
             actions: vec![String::from("android.intent.action.MAIN")],
