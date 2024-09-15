@@ -34,7 +34,7 @@ impl Command {
                 let apk_metadata = Metadata::from_package(package)?;
                 let manifest = apk_manifest(package, &ori_metadata, &apk_metadata)?;
 
-                build_apk(&metadata, package, &manifest, &options)?;
+                build_apk(&metadata, package, &apk_metadata, &manifest, &options)?;
             }
 
             Command::Install(mut options) => {
@@ -56,7 +56,14 @@ impl Command {
                 let apk_metadata = Metadata::from_package(package)?;
                 let manifest = apk_manifest(package, &ori_metadata, &apk_metadata)?;
 
-                install_apk(&metadata, package, &manifest, device, &options)?;
+                install_apk(
+                    &metadata,
+                    package,
+                    &apk_metadata,
+                    &manifest,
+                    device,
+                    &options,
+                )?;
             }
         }
 
@@ -99,8 +106,6 @@ pub struct BuildOptions {
     pub verbose: bool,
 }
 
-enum Orientation {}
-
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "kebab-case")]
@@ -112,6 +117,9 @@ struct Metadata {
 
     /// The version name of the APK.
     version_name: Option<String>,
+
+    /// The icon of the APK.
+    icon: Option<String>,
 
     #[serde(default)]
     uses_feature: Vec<String>,
@@ -211,13 +219,14 @@ fn get_package<'a>(
 fn install_apk(
     metadata: &cargo_metadata::Metadata,
     package: &cargo_metadata::Package,
+    apk_metadata: &Metadata,
     manifest: &apk::AndroidManifest,
     device: &Device,
     options: &BuildOptions,
 ) -> eyre::Result<()> {
     ensure_adb_installed()?;
 
-    let apk_path = build_apk(metadata, package, manifest, options)?;
+    let apk_path = build_apk(metadata, package, apk_metadata, manifest, options)?;
 
     let output = process::Command::new("adb")
         .arg("-s")
@@ -236,6 +245,7 @@ fn install_apk(
 fn build_apk(
     metadata: &cargo_metadata::Metadata,
     package: &cargo_metadata::Package,
+    apk_metadata: &Metadata,
     manifest: &apk::AndroidManifest,
     options: &BuildOptions,
 ) -> eyre::Result<PathBuf> {
@@ -253,6 +263,11 @@ fn build_apk(
         "i686-linux-android" => apk::Target::X86,
         _ => eyre::bail!("Target '{}' is not supported for android", target),
     };
+
+    let icon_path = apk_metadata
+        .icon
+        .as_ref()
+        .map(|icon| metadata.workspace_root.join(icon));
 
     let artifact = build_lib(
         package,
@@ -280,7 +295,7 @@ fn build_apk(
     let mut apk = apk::Apk::new(apk_path.clone(), manifest.clone(), true)
         .map_err(|e| eyre::eyre!("{}", e))?;
 
-    apk.add_res(None, sdk_path.as_ref())
+    apk.add_res(icon_path.as_ref().map(AsRef::as_ref), sdk_path.as_ref())
         .map_err(|e| eyre::eyre!("{}", e))?;
 
     apk.add_dex(dex_path.as_ref())
