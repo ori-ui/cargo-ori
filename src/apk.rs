@@ -335,7 +335,11 @@ fn build_apk(
         .map_err(|e| eyre::eyre!("{}", e))?;
 
     if let Some(ref icon_path) = icon_path {
-        println!("  {} adding icon `{}`", "Build".green().bold(), icon_path);
+        println!(
+            "   {} adding icon `{}`",
+            "Building".green().bold(),
+            icon_path
+        );
     }
 
     apk.add_res(icon_path.as_ref().map(AsRef::as_ref), sdk_path.as_ref())
@@ -344,7 +348,11 @@ fn build_apk(
     apk.add_dex(dex_path.as_ref())
         .map_err(|e| eyre::eyre!("{}", e))?;
 
-    println!("  {} adding library `{}`", "Build".green().bold(), lib_path);
+    println!(
+        "   {} adding library `{}`",
+        "Building".green().bold(),
+        lib_path
+    );
 
     apk.add_lib(apk_target, lib_path.as_ref())
         .map_err(|e| eyre::eyre!("{}", e))?;
@@ -352,15 +360,18 @@ fn build_apk(
     let pem = match options.pem {
         Some(ref pem) => {
             println!(
-                "  {} signing APK with pem `{}`",
-                "Build".green().bold(),
+                "   {} signing APK with pem `{}`",
+                "Building".green().bold(),
                 pem.display()
             );
 
             fs::read_to_string(pem).wrap_err("Failed to load PEM file")?
         }
         None => {
-            println!("  {} signing APK with debug pem", "Build".green().bold());
+            println!(
+                "   {} signing APK with debug pem",
+                "Building".green().bold()
+            );
 
             String::from(include_str!("debug.pem"))
         }
