@@ -1,0 +1,5 @@
+# java artifacts
+/.gradle/
+/.settings/
+/.project
+/.classpath
