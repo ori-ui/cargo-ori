@@ -65,9 +65,16 @@ impl Android {
         };
 
         let apk = match settings.release {
-            true => meta
-                .android_directory
-                .join("build/outputs/apk/release/android-release.apk"),
+            true => {
+                let release = meta.android_directory.join("build/outputs/apk/release");
+                let signed = release.join("android-release.apk");
+
+                if signed.exists() {
+                    signed
+                } else {
+                    release.join("android-release-unsigned.apk")
+                }
+            }
 
             false => meta
                 .android_directory
