@@ -45,8 +45,10 @@ fn tabularize(rows: &[Vec<String>]) {
         eprint!("    ");
 
         for (i, (item, length)) in row.iter().zip(&lengths).enumerate() {
-            if i > 0 {
+            if i > 1 {
                 eprint!(" - ");
+            } else if i > 0 {
+                eprint!(" ");
             }
 
             eprint!("{item}{}", " ".repeat(length - item.len()));
@@ -139,7 +141,8 @@ impl Desktop {
 
     pub fn table_items(&self) -> Vec<String> {
         vec![
-            format!("{} (desktop)", self.os),
+            self.os.clone(),
+            String::from("(desktop)"),
             self.os.clone(),
             self.arch.clone(),
         ]
@@ -153,7 +156,8 @@ impl Android {
 
     pub fn table_items(&self) -> Vec<String> {
         vec![
-            format!("{} (android)", self.device),
+            self.device.clone(),
+            String::from("(android)"),
             self.id.clone(),
             self.arch.clone(),
         ]
