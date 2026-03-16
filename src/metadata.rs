@@ -153,8 +153,6 @@ impl Android {
             "version-code",
         ];
 
-        const VALID_TARGETS: &[&str] = &["arm64-v8a", "armabi-v7a", "x86_64", "x86"];
-
         let Some(object) = metadata.as_object() else {
             return;
         };
@@ -169,35 +167,45 @@ impl Android {
         }
 
         if let Some(targets) = object.get("targets") {
-            if let Some(array) = targets.as_array() {
-                if array.is_empty() {
-                    eprintln!(
-                        "{} no android targets specified",
-                        "warning:".yellow().bold(),
-                    );
-                }
+            Self::check_targets(targets);
+        }
+    }
 
-                for target in array {
-                    if let Some(target) = target.as_str() {
-                        if !VALID_TARGETS.contains(&target) {
-                            eprintln!(
-                                "{} invalid android target `{}`, valid targets are [{}]",
-                                "warning:".yellow().bold(),
-                                target,
-                                VALID_TARGETS.join(", "),
-                            );
-                        }
-                    } else {
-                        eprintln!(
-                            "{} `package.metadata.android.targets` must be a list of strings",
-                            "error:".red().bold(),
-                        );
-                    }
-                }
-            } else {
+    fn check_targets(targets: &serde_json::Value) {
+        const VALID_TARGETS: &[&str] = &["arm64-v8a", "armabi-v7a", "x86_64", "x86"];
+
+        let Some(array) = targets.as_array() else {
+            eprintln!(
+                "{} `package.metadata.android.targets` must be a list",
+                "error:".red().bold(),
+            );
+
+            return;
+        };
+
+        if array.is_empty() {
+            eprintln!(
+                "{} no android targets specified",
+                "warning:".yellow().bold(),
+            );
+        }
+
+        for target in array {
+            let Some(target) = target.as_str() else {
                 eprintln!(
-                    "{} `package.metadata.android.targets` must be a list",
+                    "{} `package.metadata.android.targets` must be a list of strings",
                     "error:".red().bold(),
+                );
+
+                continue;
+            };
+
+            if !VALID_TARGETS.contains(&target) {
+                eprintln!(
+                    "{} invalid android target `{}`, valid targets are [{}]",
+                    "warning:".yellow().bold(),
+                    target,
+                    VALID_TARGETS.join(", "),
                 );
             }
         }
