@@ -110,13 +110,6 @@ pub fn android(
         stdout.write_all(&stop_output.stderr)?;
     }
 
-    eprintln!(
-        "   {} `{}` ({})",
-        "Installing".green().bold(),
-        meta.package,
-        apk.display(),
-    );
-
     let install_output = process::Command::new(&adb)
         .arg("-s")
         .arg(&device.id)
@@ -139,7 +132,7 @@ pub fn android(
         .output()?;
 
     eprintln!(
-        "    {} {} ({}:{})",
+        "     {} {} ({}:{})",
         "Running".green().bold(),
         meta.package,
         device.device,

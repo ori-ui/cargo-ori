@@ -2,6 +2,7 @@ use std::{env, ffi::OsString, path::PathBuf, process};
 
 use cargo_metadata::{Metadata, Package};
 use eyre::OptionExt;
+use owo_colors::OwoColorize;
 
 pub struct Android {
     pub root_package: Package,
@@ -147,12 +148,12 @@ impl Android {
             "name",
             "key-properties",
             "package",
-            "compile-sdk",
-            "target-sdk",
-            "min-sdk",
+            "targets",
             "version",
             "version-code",
         ];
+
+        const VALID_TARGETS: &[&str] = &["arm64-v8a", "armabi-v7a", "x86_64", "x86"];
 
         let Some(object) = metadata.as_object() else {
             return;
@@ -160,7 +161,44 @@ impl Android {
 
         for key in object.keys() {
             if !VALID_KEYS.contains(&key.as_str()) {
-                eprintln!("unused key `package.metadata.android.{key}`");
+                eprintln!(
+                    "{} unused key `package.metadata.android.{key}`",
+                    "warning:".yellow().bold(),
+                );
+            }
+        }
+
+        if let Some(targets) = object.get("targets") {
+            if let Some(array) = targets.as_array() {
+                if array.is_empty() {
+                    eprintln!(
+                        "{} no android targets specified",
+                        "warning:".yellow().bold(),
+                    );
+                }
+
+                for target in array {
+                    if let Some(target) = target.as_str() {
+                        if !VALID_TARGETS.contains(&target) {
+                            eprintln!(
+                                "{} invalid android target `{}`, valid targets are [{}]",
+                                "warning:".yellow().bold(),
+                                target,
+                                VALID_TARGETS.join(", "),
+                            );
+                        }
+                    } else {
+                        eprintln!(
+                            "{} `package.metadata.android.targets` must be a list of strings",
+                            "error:".red().bold(),
+                        );
+                    }
+                }
+            } else {
+                eprintln!(
+                    "{} `package.metadata.android.targets` must be a list",
+                    "error:".red().bold(),
+                );
             }
         }
     }

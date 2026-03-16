@@ -43,18 +43,19 @@ impl Android {
     fn run(self, settings: &Settings) -> eyre::Result<()> {
         let meta = MetadataCommand::new().exec()?;
         let meta = metadata::Android::new(&meta)?;
+
+        eprintln!(
+            "  {} {} v{} (android)",
+            "Building".green().bold(),
+            &meta.package,
+            meta.root_package.version,
+        );
+
         android(&meta, settings)
     }
 }
 
 pub fn android(meta: &metadata::Android, settings: &Settings) -> eyre::Result<()> {
-    eprintln!(
-        "  {} {} v{} (android)",
-        "Building".green().bold(),
-        &meta.package,
-        meta.root_package.version,
-    );
-
     let assemble_task = match settings.release {
         true => "assembleRelease",
         false => "assembleDebug",
