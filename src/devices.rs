@@ -1,4 +1,4 @@
-use std::{fmt, process};
+use std::{env, ffi::OsStr, process};
 
 use cargo_metadata::{Metadata, MetadataCommand, TargetKind};
 use clap::Parser;
@@ -18,11 +18,39 @@ impl Command {
 
         eprintln!("{}", "List of available devices:".green());
 
-        for device in devices {
-            eprintln!("    {device}");
-        }
+        let rows = devices.iter().map(Device::table_items).collect::<Vec<_>>();
+        tabularize(&rows);
 
         Ok(())
+    }
+}
+
+fn tabularize(rows: &[Vec<String>]) {
+    let mut lengths = Vec::new();
+
+    for row in rows {
+        for (i, item) in row.iter().enumerate() {
+            match lengths.get_mut(i) {
+                Some(length) => *length = usize::max(*length, item.len()),
+                None => lengths.push(item.len()),
+            }
+        }
+    }
+
+    for (i, row) in rows.iter().enumerate() {
+        if i > 0 {
+            eprintln!();
+        }
+
+        eprint!("    ");
+
+        for (i, (item, length)) in row.iter().zip(&lengths).enumerate() {
+            if i > 0 {
+                eprint!(" - ");
+            }
+
+            eprint!("{item}{}", " ".repeat(length - item.len()));
+        }
     }
 }
 
@@ -78,19 +106,28 @@ pub enum Device {
 #[derive(Clone, Debug)]
 pub struct Desktop {
     pub os: String,
+    pub arch: String,
 }
 
 #[derive(Clone, Debug)]
 pub struct Android {
     pub id: String,
     pub device: String,
+    pub arch: String,
 }
 
 impl Device {
     pub fn fuzzy_match(&self, matcher: &mut Matcher, needle: &str) -> Option<u16> {
         match self {
-            Device::Desktop(desktop) => desktop.fuzzy_match(matcher, needle),
-            Device::Android(android) => android.fuzzy_match(matcher, needle),
+            Device::Desktop(device) => device.fuzzy_match(matcher, needle),
+            Device::Android(device) => device.fuzzy_match(matcher, needle),
+        }
+    }
+
+    pub fn table_items(&self) -> Vec<String> {
+        match self {
+            Device::Desktop(device) => device.table_items(),
+            Device::Android(device) => device.table_items(),
         }
     }
 }
@@ -99,32 +136,27 @@ impl Desktop {
     pub fn fuzzy_match(&self, matcher: &mut Matcher, needle: &str) -> Option<u16> {
         matcher.fuzzy_match_all(["desktop", &self.os], needle)
     }
+
+    pub fn table_items(&self) -> Vec<String> {
+        vec![
+            format!("{} (desktop)", self.os),
+            self.os.clone(),
+            self.arch.clone(),
+        ]
+    }
 }
 
 impl Android {
     pub fn fuzzy_match(&self, matcher: &mut Matcher, needle: &str) -> Option<u16> {
         matcher.fuzzy_match_all(["mobile", "android", &self.id, &self.device], needle)
     }
-}
 
-impl fmt::Display for Device {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Device::Desktop(desktop) => desktop.fmt(f),
-            Device::Android(android) => android.fmt(f),
-        }
-    }
-}
-
-impl fmt::Display for Desktop {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} (desktop) - linux", self.os)
-    }
-}
-
-impl fmt::Display for Android {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} (android) - {}", self.device, self.id)
+    pub fn table_items(&self) -> Vec<String> {
+        vec![
+            format!("{} (android)", self.device),
+            self.id.clone(),
+            self.arch.clone(),
+        ]
     }
 }
 
@@ -145,7 +177,10 @@ pub fn list(cargo: &Metadata) -> Vec<Device> {
             "linux"
         };
 
-        let desktop = Desktop { os: os.to_owned() };
+        let desktop = Desktop {
+            os: os.to_owned(),
+            arch: env::consts::ARCH.to_owned(),
+        };
 
         devices.push(Device::Desktop(desktop));
     }
@@ -160,7 +195,7 @@ pub fn list(cargo: &Metadata) -> Vec<Device> {
 pub fn list_android(cargo: &Metadata) -> eyre::Result<Vec<Android>> {
     let adb = metadata::Android::get_adb(cargo)?;
 
-    let devices_output = process::Command::new(adb)
+    let devices_output = process::Command::new(&adb)
         .arg("devices")
         .arg("-l")
         .output()?;
@@ -175,7 +210,7 @@ pub fn list_android(cargo: &Metadata) -> eyre::Result<Vec<Android>> {
     for line in stdout.lines().skip(1) {
         let parts = line.split_whitespace();
 
-        if let Ok(device) = Android::parse(parts) {
+        if let Ok(device) = Android::parse(&adb, parts) {
             devices.push(device);
         }
     }
@@ -184,7 +219,7 @@ pub fn list_android(cargo: &Metadata) -> eyre::Result<Vec<Android>> {
 }
 
 impl Android {
-    fn parse<'a>(mut parts: impl Iterator<Item = &'a str>) -> eyre::Result<Android> {
+    fn parse<'a>(adb: &OsStr, mut parts: impl Iterator<Item = &'a str>) -> eyre::Result<Android> {
         let id = parts.next().ok_or_eyre("id not found")?;
 
         parts.next(); // device
@@ -198,9 +233,18 @@ impl Android {
             .next_back()
             .ok_or_eyre("device not found")?;
 
+        let arch = process::Command::new(adb)
+            .arg("-s")
+            .arg(id)
+            .arg("shell")
+            .arg("uname")
+            .arg("-m")
+            .output()?;
+
         Ok(Android {
             id: id.to_owned(),
             device: device.to_owned(),
+            arch: String::from_utf8_lossy(&arch.stdout).into(),
         })
     }
 }

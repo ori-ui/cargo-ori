@@ -62,11 +62,7 @@ impl Android {
 
     pub fn get_adb(cargo: &Metadata) -> eyre::Result<OsString> {
         let adb = if let Ok(sdk_root) = env::var("ANDROID_SDK_ROOT") {
-            if cfg!(target_os = "windows") {
-                format!("{sdk_root}/platform-tools/adb.exe")
-            } else {
-                format!("{sdk_root}/platform-tools/adb")
-            }
+            format!("{sdk_root}/platform-tools/adb{}", env::consts::EXE_SUFFIX)
         } else if let Ok(adb) = Self::get_adb_from_gradle(cargo) {
             adb
         } else {

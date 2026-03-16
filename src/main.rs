@@ -51,6 +51,7 @@ enum Command {
     /// Initialize a project.
     Init(init::Command),
 
+    /// List the available devices.
     Devices(devices::Command),
 
     /// Build a project.
