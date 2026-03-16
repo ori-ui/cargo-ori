@@ -1,4 +1,4 @@
-use std::{ffi::OsString, path::PathBuf};
+use std::{env, ffi::OsString, path::PathBuf, process};
 
 use cargo_metadata::{Metadata, Package};
 use eyre::OptionExt;
@@ -12,6 +12,95 @@ pub struct Android {
 }
 
 impl Android {
+    fn get_root_directory(cargo: &Metadata) -> eyre::Result<PathBuf> {
+        let root_package = cargo
+            .root_package()
+            .ok_or_eyre("root package could not be found")?;
+
+        Ok(root_package
+            .manifest_path
+            .parent()
+            .expect("files always have a parent directory")
+            .into())
+    }
+
+    fn get_android_directory(cargo: &Metadata) -> eyre::Result<PathBuf> {
+        let android_directory = Self::get_root_directory(cargo)?.join("android");
+
+        if !android_directory.exists() {
+            eyre::bail!("package does not have an android project");
+        }
+
+        Ok(android_directory)
+    }
+
+    pub fn get_gradle(cargo: &Metadata) -> eyre::Result<OsString> {
+        let android_directory = Self::get_root_directory(cargo)?;
+
+        let gradlew = if cfg!(target_os = "windows") {
+            android_directory.join("gradlew.bat")
+        } else {
+            android_directory.join("gradlew")
+        };
+
+        let gradle = if gradlew.exists() {
+            gradlew.as_os_str().to_owned()
+        } else {
+            OsString::from("gradle")
+        };
+
+        if process::Command::new(&gradle)
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            eyre::bail!("a valid version of `gradle` could not be found");
+        }
+
+        Ok(gradle)
+    }
+
+    pub fn get_adb(cargo: &Metadata) -> eyre::Result<OsString> {
+        let adb = if let Ok(sdk_root) = env::var("ANDROID_SDK_ROOT") {
+            if cfg!(target_os = "windows") {
+                format!("{sdk_root}/platform-tools/adb.exe")
+            } else {
+                format!("{sdk_root}/platform-tools/adb")
+            }
+        } else if let Ok(adb) = Self::get_adb_from_gradle(cargo) {
+            adb
+        } else {
+            String::from("adb")
+        };
+
+        if process::Command::new(&adb)
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            eyre::bail!("a valid version of `adb` could not be found");
+        }
+
+        Ok(adb.into())
+    }
+
+    fn get_adb_from_gradle(cargo: &Metadata) -> eyre::Result<String> {
+        let gradle = Self::get_gradle(cargo)?;
+        let android_directory = Self::get_android_directory(cargo)?;
+
+        let get_adb_output = process::Command::new(gradle)
+            .current_dir(android_directory)
+            .arg("getAdbExe")
+            .arg("--quiet")
+            .output()?;
+
+        if get_adb_output.status.success() {
+            Ok(String::from_utf8_lossy(&get_adb_output.stderr).to_string())
+        } else {
+            Err(eyre::eyre!("failed to get adb executable from gradle"))
+        }
+    }
+
     pub fn new(cargo: &Metadata) -> eyre::Result<Self> {
         let root_package = cargo
             .root_package()
@@ -46,17 +135,7 @@ impl Android {
 
         let activity = format!("{package}/ori.OriActivity");
 
-        let gradlew = if cfg!(target_os = "windows") {
-            android_directory.join("gradlew.bat")
-        } else {
-            android_directory.join("gradlew")
-        };
-
-        let gradle = if gradlew.exists() {
-            gradlew.as_os_str().to_owned()
-        } else {
-            OsString::from("gradle")
-        };
+        let gradle = Self::get_gradle(cargo)?;
 
         Ok(Self {
             root_package: root_package.clone(),

@@ -1,4 +1,5 @@
 mod build;
+mod devices;
 mod init;
 mod metadata;
 mod run;
@@ -38,6 +39,7 @@ impl Args {
     fn run(self) -> eyre::Result<()> {
         match self.command {
             Command::Init(init) => init.run(),
+            Command::Devices(devices) => devices.run(),
             Command::Build(build) => build.run(),
             Command::Run(run) => run.run(),
         }
@@ -48,6 +50,8 @@ impl Args {
 enum Command {
     /// Initialize a project.
     Init(init::Command),
+
+    Devices(devices::Command),
 
     /// Build a project.
     #[clap(visible_alias = "b")]

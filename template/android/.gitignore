@@ -1,5 +1,10 @@
-# java artifacts
+# Gradle build artifacts
+/build/
 /.gradle/
 /.settings/
 /.project
 /.classpath
+
+# Signing keys should never be tracked in git
+/**/*.jks*
+/**/*key.properties*
