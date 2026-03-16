@@ -1,42 +1,20 @@
-mod build;
-mod devices;
-mod init;
-mod metadata;
-mod run;
-
-use std::process::ExitCode;
+pub mod build;
+pub mod devices;
+pub mod init;
+pub mod metadata;
+pub mod run;
 
 use clap::Parser;
-use owo_colors::colored::OwoColorize;
-
-fn main() -> ExitCode {
-    let _ = color_eyre::config::HookBuilder::new().install();
-
-    let Ori::Ori(args) = Ori::parse();
-
-    if let Err(err) = args.run() {
-        eprintln!("{} {err}", "error:".red().bold());
-
-        ExitCode::FAILURE
-    } else {
-        ExitCode::SUCCESS
-    }
-}
 
 #[derive(Parser)]
-enum Ori {
-    /// Build and run ori projects.
-    Ori(Args),
-}
-
-#[derive(Parser)]
-struct Args {
+#[clap(styles = clap_cargo::style::CLAP_STYLING)]
+pub struct Args {
     #[clap(subcommand)]
     command: Command,
 }
 
 impl Args {
-    fn run(self) -> eyre::Result<()> {
+    pub fn run(self) -> eyre::Result<()> {
         match self.command {
             Command::Init(init) => init.run(),
             Command::Devices(devices) => devices.run(),
@@ -47,7 +25,7 @@ impl Args {
 }
 
 #[derive(Parser)]
-enum Command {
+pub enum Command {
     /// Initialize a project.
     Init(init::Command),
 

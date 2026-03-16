@@ -97,6 +97,7 @@ version = "0.1.0"
 dependencies = [
  "cargo_metadata",
  "clap",
+ "clap-cargo",
  "color-eyre",
  "eyre",
  "nucleo-matcher",
@@ -142,6 +143,16 @@ checksum = "b193af5b67834b676abd72466a96c1024e6a6ad978a1f484bd90b85c94041351"
 dependencies = [
  "clap_builder",
  "clap_derive",
+]
+
+[[package]]
+name = "clap-cargo"
+version = "0.18.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "936551935c8258754bb8216aec040957d261f977303754b9bf1a213518388006"
+dependencies = [
+ "anstyle",
+ "clap",
 ]
 
 [[package]]

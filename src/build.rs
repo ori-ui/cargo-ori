@@ -49,7 +49,7 @@ impl Android {
 
 pub fn android(meta: &metadata::Android, settings: &Settings) -> eyre::Result<()> {
     eprintln!(
-        "   {} {} v{} (android)",
+        "  {} {} v{} (android)",
         "Building".green().bold(),
         &meta.package,
         meta.root_package.version,
