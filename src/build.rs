@@ -2,7 +2,6 @@ use std::process;
 
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
-use owo_colors::OwoColorize;
 
 use crate::metadata;
 
@@ -12,12 +11,21 @@ pub struct Command {
     system: System,
 
     #[clap(flatten)]
-    settings: Settings,
+    options: Options,
 }
 
 #[derive(Parser)]
-pub struct Settings {
-    #[clap(short, long)]
+pub struct Options {
+    /// Package with the target to run.
+    #[arg(short, long, help_heading = "Package Selection")]
+    pub package: Option<String>,
+
+    /// Name of the bin target to build.
+    #[arg(long, help_heading = "Target Selection")]
+    pub bin: Option<String>,
+
+    /// Build application in release mode, with optimizations.
+    #[arg(short, long, help_heading = "Compilation Options")]
     pub release: bool,
 }
 
@@ -34,29 +42,22 @@ struct Android {}
 impl Command {
     pub fn run(self) -> eyre::Result<()> {
         match self.system {
-            System::Android(android) => android.run(&self.settings),
+            System::Android(android) => android.run(&self.options),
         }
     }
 }
 
 impl Android {
-    fn run(self, settings: &Settings) -> eyre::Result<()> {
+    fn run(self, options: &Options) -> eyre::Result<()> {
         let meta = MetadataCommand::new().exec()?;
-        let meta = metadata::Android::new(&meta)?;
+        let meta = metadata::Android::new(&meta, options.package.as_deref())?;
 
-        eprintln!(
-            "  {} {} v{} (android)",
-            "Building".green().bold(),
-            &meta.package,
-            meta.root_package.version,
-        );
-
-        android(&meta, settings)
+        android(&meta, options.release)
     }
 }
 
-pub fn android(meta: &metadata::Android, settings: &Settings) -> eyre::Result<()> {
-    let assemble_task = match settings.release {
+pub fn android(meta: &metadata::Android, release: bool) -> eyre::Result<()> {
+    let assemble_task = match release {
         true => "assembleRelease",
         false => "assembleDebug",
     };

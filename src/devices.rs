@@ -62,6 +62,12 @@ pub struct Matcher {
     needle: Vec<char>,
 }
 
+impl Default for Matcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Matcher {
     pub fn new() -> Self {
         let mut config = nucleo_matcher::Config::DEFAULT;
@@ -167,12 +173,12 @@ impl Android {
 pub fn list(cargo: &Metadata) -> Vec<Device> {
     let mut devices = Vec::new();
 
-    if let Some(root_package) = cargo.root_package()
-        && root_package
+    if cargo.workspace_packages().iter().any(|package| {
+        package
             .targets
             .iter()
-            .any(|target| target.kind.contains(&TargetKind::Bin))
-    {
+            .any(|target| target.is_kind(TargetKind::Bin))
+    }) {
         let os = if cfg!(target_os = "windows") {
             "windows"
         } else if cfg!(target_os = "macos") {

@@ -5,9 +5,9 @@ use eyre::OptionExt;
 use owo_colors::OwoColorize;
 
 pub struct Android {
-    pub root_package: Package,
+    pub package: Package,
     pub android_directory: PathBuf,
-    pub package: String,
+    pub app_id: String,
     pub activity: String,
     pub gradle: OsString,
 }
@@ -98,46 +98,53 @@ impl Android {
         }
     }
 
-    pub fn new(cargo: &Metadata) -> eyre::Result<Self> {
-        let root_package = cargo
-            .root_package()
-            .ok_or_eyre("root package could not be found")?;
+    pub fn new(cargo: &Metadata, package: Option<&str>) -> eyre::Result<Self> {
+        let package = match package {
+            Some(name) => cargo
+                .workspace_packages()
+                .iter()
+                .find(|package| package.name == name)
+                .ok_or_eyre("package `{name}` could not be found")?,
+            None => cargo
+                .root_package()
+                .ok_or_eyre("root package could not be found")?,
+        };
 
-        let root_directory = root_package
+        let package_directory = package
             .manifest_path
             .parent()
             .expect("files always have a parent directory");
 
-        let android_directory = root_directory.join("android");
+        let android_directory = package_directory.join("android");
 
         if !android_directory.exists() {
             eyre::bail!(
                 "package `{}` does not have an android project",
-                root_package.name,
+                package.name,
             );
         }
 
-        let android_metadata = root_package
+        let android_metadata = package
             .metadata
             .get("android")
             .ok_or_eyre("could not find `package.metadata.android` in Cargo.toml")?;
 
         Self::check(android_metadata);
 
-        let package = android_metadata
+        let app_id = android_metadata
             .get("package")
             .ok_or_eyre("could not find `package.metadata.android.package` in Cargo.toml")?
             .as_str()
             .ok_or_eyre("`android.package` must be a string")?;
 
-        let activity = format!("{package}/ori.OriActivity");
+        let activity = format!("{app_id}/ori.OriActivity");
 
         let gradle = Self::get_gradle(cargo)?;
 
         Ok(Self {
-            root_package: root_package.clone(),
+            package: package.clone(),
             android_directory: android_directory.into(),
-            package: package.into(),
+            app_id: app_id.into(),
             activity,
             gradle,
         })

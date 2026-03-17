@@ -11,10 +11,30 @@ use crate::{build, devices, metadata};
 
 #[derive(Parser)]
 pub struct Command {
+    /// The device to run the application on.
     device: Option<String>,
 
     #[clap(flatten)]
-    settings: build::Settings,
+    options: Options,
+}
+
+#[derive(Parser)]
+struct Options {
+    /// Package with the target to run.
+    #[arg(short, long, help_heading = "Package Selection")]
+    package: Option<String>,
+
+    /// Name of the bin target to run.
+    #[arg(long, help_heading = "Target Selection")]
+    bin: Option<String>,
+
+    /// Name of the example target to run.
+    #[arg(long, help_heading = "Target Selection")]
+    example: Option<String>,
+
+    /// Build application in release mode, with optimizations.
+    #[arg(short, long, help_heading = "Compilation Options")]
+    release: bool,
 }
 
 impl Command {
@@ -40,38 +60,44 @@ impl Command {
         };
 
         match device {
-            devices::Device::Desktop(device) => desktop(&cargo, &device, &self.settings),
-            devices::Device::Android(device) => android(&cargo, &device, &self.settings),
+            devices::Device::Desktop(device) => desktop(&cargo, &device, &self.options),
+            devices::Device::Android(device) => android(&cargo, &device, &self.options),
         }
     }
 }
 
-pub fn desktop(
-    _cargo: &Metadata,
-    _device: &devices::Desktop,
-    settings: &build::Settings,
-) -> eyre::Result<()> {
+fn desktop(_cargo: &Metadata, _device: &devices::Desktop, options: &Options) -> eyre::Result<()> {
     let mut command = process::Command::new("cargo");
 
-    if settings.release {
+    command.arg("run");
+
+    if options.release {
         command.arg("--release");
     }
 
-    command.arg("run").spawn()?.wait()?;
+    if let Some(ref bin) = options.bin {
+        command.arg("--bin").arg(bin);
+    }
+
+    if let Some(ref example) = options.example {
+        command.arg("--example").arg(example);
+    }
+
+    if let Some(ref package) = options.package {
+        command.arg("--package").arg(package);
+    }
+
+    command.spawn()?.wait()?;
 
     Ok(())
 }
 
-pub fn android(
-    cargo: &Metadata,
-    device: &devices::Android,
-    settings: &build::Settings,
-) -> eyre::Result<()> {
-    let meta = metadata::Android::new(cargo)?;
+fn android(cargo: &Metadata, device: &devices::Android, options: &Options) -> eyre::Result<()> {
+    let meta = metadata::Android::new(cargo, options.package.as_deref())?;
 
-    build::android(&meta, settings)?;
+    build::android(&meta, options.release)?;
 
-    let apk = match settings.release {
+    let apk = match options.release {
         true => {
             let release = meta.android_directory.join("build/outputs/apk/release");
 
@@ -101,7 +127,7 @@ pub fn android(
         .arg("shell")
         .arg("am")
         .arg("force-stop")
-        .arg(&meta.package)
+        .arg(&meta.app_id)
         .output()?;
 
     let mut stdout = io::stdout();
@@ -134,7 +160,7 @@ pub fn android(
     eprintln!(
         "     {} {} ({}:{})",
         "Running".green().bold(),
-        meta.package,
+        meta.app_id,
         device.device,
         device.id
     );
@@ -161,12 +187,12 @@ pub fn android(
         .arg("shell")
         .arg("pidof")
         .arg("-s")
-        .arg(&meta.package)
+        .arg(&meta.app_id)
         .output()?;
 
     if !pid_output.status.success() {
         stdout.write_all(&pid_output.stderr)?;
-        eyre::bail!("could not get `pid` of `{}`", meta.package);
+        eyre::bail!("could not get `pid` of `{}`", meta.app_id);
     }
 
     let pid = String::from_utf8_lossy(&pid_output.stdout);
