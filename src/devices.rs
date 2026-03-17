@@ -251,10 +251,18 @@ impl Android {
             .arg("-m")
             .output()?;
 
+        let arch = match arch.stdout.as_slice() {
+            b"aarch64\n" => "arm64-v8a",
+            b"armv7i\n" => "armabi-v7a",
+            b"x86_64\n" => "x86_64",
+            b"i383\n" | b"i686\n" => "x86",
+            _ => "unknown",
+        };
+
         Ok(Android {
             id: id.to_owned(),
             device: device.to_owned(),
-            arch: String::from_utf8_lossy(&arch.stdout).into(),
+            arch: String::from(arch),
         })
     }
 }
