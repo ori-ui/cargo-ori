@@ -177,7 +177,7 @@ pub fn list(cargo: &Metadata) -> Vec<Device> {
         package
             .targets
             .iter()
-            .any(|target| target.is_kind(TargetKind::Bin))
+            .any(|target| target.is_kind(TargetKind::Bin) || target.is_kind(TargetKind::Example))
     }) {
         let os = if cfg!(target_os = "windows") {
             "windows"
