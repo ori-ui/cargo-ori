@@ -16,7 +16,7 @@ impl Command {
         let cargo = MetadataCommand::new().exec()?;
         let devices = list(&cargo);
 
-        eprintln!("{}", "List of available devices:".green());
+        eprintln!("{}", "List of available devices:".green().bold());
 
         let rows = devices.iter().map(Device::table_items).collect::<Vec<_>>();
         tabularize(&rows);
