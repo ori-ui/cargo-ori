@@ -253,7 +253,7 @@ impl Android {
 
         let arch = match arch.stdout.as_slice() {
             b"aarch64\n" => "arm64-v8a",
-            b"armv7i\n" => "armabi-v7a",
+            b"armv7i\n" | b"armv8l\n" => "armeabi-v7a",
             b"x86_64\n" => "x86_64",
             b"i383\n" | b"i686\n" => "x86",
             _ => "unknown",

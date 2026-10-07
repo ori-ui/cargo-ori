@@ -179,7 +179,7 @@ impl Android {
     }
 
     fn check_targets(targets: &serde_json::Value) {
-        const VALID_TARGETS: &[&str] = &["arm64-v8a", "armabi-v7a", "x86_64", "x86"];
+        const VALID_TARGETS: &[&str] = &["arm64-v8a", "armeabi-v7a", "x86_64", "x86"];
 
         let Some(array) = targets.as_array() else {
             eprintln!(
