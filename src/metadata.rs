@@ -104,7 +104,7 @@ impl Android {
                 .workspace_packages()
                 .iter()
                 .find(|package| package.name == name)
-                .ok_or_eyre("package `{name}` could not be found")?,
+                .ok_or_else(|| eyre::eyre!("package `{name}` could not be found"))?,
             None => cargo
                 .root_package()
                 .ok_or_eyre("root package could not be found")?,
