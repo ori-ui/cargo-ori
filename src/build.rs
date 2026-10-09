@@ -52,17 +52,23 @@ impl Android {
         let meta = MetadataCommand::new().exec()?;
         let meta = metadata::Android::new(&meta, options.package.as_deref())?;
 
-        android(&meta, options.release)
+        android(&meta, None, options.release)
     }
 }
 
-pub fn android(meta: &metadata::Android, release: bool) -> eyre::Result<()> {
+pub fn android(meta: &metadata::Android, arch: Option<&str>, release: bool) -> eyre::Result<()> {
     let assemble_task = match release {
         true => "assembleRelease",
         false => "assembleDebug",
     };
 
-    let build_exit_code = process::Command::new(&meta.gradle)
+    let mut command = process::Command::new(&meta.gradle);
+
+    if let Some(arch) = arch {
+        command.env("ORI_TARGET_ARCH", arch);
+    }
+
+    let build_exit_code = command
         .current_dir(&meta.android_directory)
         .arg(assemble_task)
         .arg("--quiet")

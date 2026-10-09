@@ -95,7 +95,7 @@ fn desktop(_cargo: &Metadata, _device: &devices::Desktop, options: &Options) -> 
 fn android(cargo: &Metadata, device: &devices::Android, options: &Options) -> eyre::Result<()> {
     let meta = metadata::Android::new(cargo, options.package.as_deref())?;
 
-    build::android(&meta, options.release)?;
+    build::android(&meta, Some(&device.arch), options.release)?;
 
     let apk = match options.release {
         true => {
