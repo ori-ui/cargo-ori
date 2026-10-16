@@ -119,9 +119,7 @@ fn android(cargo: &Metadata, device: &devices::Android, options: &Options) -> ey
         eyre::bail!("apk file does not exist");
     }
 
-    let adb = metadata::Android::get_adb(cargo)?;
-
-    let stop_output = process::Command::new(&adb)
+    let stop_output = process::Command::new(&meta.adb)
         .arg("-s")
         .arg(&device.id)
         .arg("shell")
@@ -136,7 +134,7 @@ fn android(cargo: &Metadata, device: &devices::Android, options: &Options) -> ey
         stdout.write_all(&stop_output.stderr)?;
     }
 
-    let install_output = process::Command::new(&adb)
+    let install_output = process::Command::new(&meta.adb)
         .arg("-s")
         .arg(&device.id)
         .arg("install")
@@ -150,7 +148,7 @@ fn android(cargo: &Metadata, device: &devices::Android, options: &Options) -> ey
         eyre::bail!("installing app failed");
     }
 
-    process::Command::new(&adb)
+    process::Command::new(&meta.adb)
         .arg("-s")
         .arg(&device.id)
         .arg("logcat")
@@ -165,7 +163,7 @@ fn android(cargo: &Metadata, device: &devices::Android, options: &Options) -> ey
         device.id
     );
 
-    let start_output = process::Command::new(&adb)
+    let start_output = process::Command::new(&meta.adb)
         .arg("-s")
         .arg(&device.id)
         .arg("shell")
@@ -181,7 +179,7 @@ fn android(cargo: &Metadata, device: &devices::Android, options: &Options) -> ey
         eyre::bail!("starting app failed");
     }
 
-    let pid_output = process::Command::new(&adb)
+    let pid_output = process::Command::new(&meta.adb)
         .arg("-s")
         .arg(&device.id)
         .arg("shell")
@@ -197,7 +195,7 @@ fn android(cargo: &Metadata, device: &devices::Android, options: &Options) -> ey
 
     let pid = String::from_utf8_lossy(&pid_output.stdout);
 
-    process::Command::new(&adb)
+    process::Command::new(&meta.adb)
         .arg("-s")
         .arg(&device.id)
         .arg("logcat")

@@ -10,23 +10,24 @@ pub struct Android {
     pub app_id: String,
     pub activity: String,
     pub gradle: OsString,
+    pub adb: OsString,
 }
 
 impl Android {
-    fn get_root_directory(cargo: &Metadata) -> eyre::Result<PathBuf> {
-        let root_package = cargo
-            .root_package()
-            .ok_or_eyre("root package could not be found")?;
+    fn get_root_directory(cargo: &Metadata, package: Option<&Package>) -> eyre::Result<PathBuf> {
+        match package.or_else(|| cargo.root_package()) {
+            Some(package) => Ok(package
+                .manifest_path
+                .parent()
+                .expect("files always have a parent directory")
+                .into()),
 
-        Ok(root_package
-            .manifest_path
-            .parent()
-            .expect("files always have a parent directory")
-            .into())
+            None => Ok(cargo.workspace_root.clone().into()),
+        }
     }
 
-    fn get_android_directory(cargo: &Metadata) -> eyre::Result<PathBuf> {
-        let android_directory = Self::get_root_directory(cargo)?.join("android");
+    fn get_android_directory(cargo: &Metadata, package: Option<&Package>) -> eyre::Result<PathBuf> {
+        let android_directory = Self::get_root_directory(cargo, package)?.join("android");
 
         if !android_directory.exists() {
             eyre::bail!("package does not have an android project");
@@ -35,8 +36,8 @@ impl Android {
         Ok(android_directory)
     }
 
-    pub fn get_gradle(cargo: &Metadata) -> eyre::Result<OsString> {
-        let android_directory = Self::get_root_directory(cargo)?;
+    pub fn get_gradle(cargo: &Metadata, package: Option<&Package>) -> eyre::Result<OsString> {
+        let android_directory = Self::get_root_directory(cargo, package)?;
 
         let gradlew = if cfg!(target_os = "windows") {
             android_directory.join("gradlew.bat")
@@ -61,10 +62,10 @@ impl Android {
         Ok(gradle)
     }
 
-    pub fn get_adb(cargo: &Metadata) -> eyre::Result<OsString> {
+    pub fn get_adb(cargo: &Metadata, package: Option<&Package>) -> eyre::Result<OsString> {
         let adb = if let Ok(sdk_root) = env::var("ANDROID_SDK_ROOT") {
             format!("{sdk_root}/platform-tools/adb{}", env::consts::EXE_SUFFIX)
-        } else if let Ok(adb) = Self::get_adb_from_gradle(cargo) {
+        } else if let Ok(adb) = Self::get_adb_from_gradle(cargo, package) {
             adb
         } else {
             String::from("adb")
@@ -81,9 +82,9 @@ impl Android {
         Ok(adb.into())
     }
 
-    fn get_adb_from_gradle(cargo: &Metadata) -> eyre::Result<String> {
-        let gradle = Self::get_gradle(cargo)?;
-        let android_directory = Self::get_android_directory(cargo)?;
+    fn get_adb_from_gradle(cargo: &Metadata, package: Option<&Package>) -> eyre::Result<String> {
+        let gradle = Self::get_gradle(cargo, package)?;
+        let android_directory = Self::get_android_directory(cargo, package)?;
 
         let get_adb_output = process::Command::new(gradle)
             .current_dir(android_directory)
@@ -139,7 +140,8 @@ impl Android {
 
         let activity = format!("{app_id}/ori.OriActivity");
 
-        let gradle = Self::get_gradle(cargo)?;
+        let gradle = Self::get_gradle(cargo, Some(package))?;
+        let adb = Self::get_adb(cargo, Some(package))?;
 
         Ok(Self {
             package: package.clone(),
@@ -147,6 +149,7 @@ impl Android {
             app_id: app_id.into(),
             activity,
             gradle,
+            adb,
         })
     }
 

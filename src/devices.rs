@@ -203,7 +203,7 @@ pub fn list(cargo: &Metadata) -> Vec<Device> {
 }
 
 pub fn list_android(cargo: &Metadata) -> eyre::Result<Vec<Android>> {
-    let adb = metadata::Android::get_adb(cargo)?;
+    let adb = metadata::Android::get_adb(cargo, None)?;
 
     let devices_output = process::Command::new(&adb)
         .arg("devices")
