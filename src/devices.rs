@@ -142,7 +142,7 @@ impl Device {
 
 impl Desktop {
     pub fn fuzzy_match(&self, matcher: &mut Matcher, needle: &str) -> Option<u16> {
-        matcher.fuzzy_match_all(["desktop", &self.os], needle)
+        matcher.fuzzy_match_all(["desktop", "laptop", "pc", "host", &self.os], needle)
     }
 
     pub fn table_items(&self) -> Vec<String> {
@@ -157,7 +157,10 @@ impl Desktop {
 
 impl Android {
     pub fn fuzzy_match(&self, matcher: &mut Matcher, needle: &str) -> Option<u16> {
-        matcher.fuzzy_match_all(["mobile", "android", &self.id, &self.device], needle)
+        matcher.fuzzy_match_all(
+            ["mobile", "phone", "android", &self.id, &self.device],
+            needle,
+        )
     }
 
     pub fn table_items(&self) -> Vec<String> {
